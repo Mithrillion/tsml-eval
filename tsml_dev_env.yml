@@ -2,6 +2,7 @@ name: tsml_dev
 channels:
   - conda-forge
   - nvidia
+  - rapidsai
 dependencies:
   - python=3.11
   - pytorch>=2.5.1
@@ -29,6 +30,9 @@ dependencies:
   - pytest
   - tsml-eval
   - pywavelets
+  - cudf
+  - cuml
+  - cuvs
   - pip:
     - iisignature
     - autorank

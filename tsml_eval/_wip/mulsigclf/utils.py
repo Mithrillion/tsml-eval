@@ -189,6 +189,12 @@ def diff_series(signal):
 
 def pad_if_short(x, min_len=9):
     if x.shape[1] < min_len:
-        return F.pad(x, (0, 0, 0, min_len - x.shape[1]), mode="constant")
+        if torch.is_tensor(x):
+            return F.pad(x, (0, 0, 0, min_len - x.shape[1]), mode="constant")
+        else:
+            # Assuming x is a numpy array
+            return np.pad(
+                x, ((0, 0), (0, min_len - x.shape[1]), (0, 0)), mode="constant"
+            )
     else:
         return x

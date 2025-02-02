@@ -55,7 +55,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         self.do_rescale = do_rescale
         self._pca = None
 
-    def _fit(self, X, y=None):
+    def _fit(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
         # Fit method implementation
         random_state = (
             np.int32(self.random_state) if isinstance(self.random_state, int) else None
@@ -84,7 +84,7 @@ class MulSigTransformer(BaseCollectionTransformer):
 
         return self
 
-    def _preprocess_data(self, X):
+    def _preprocess_data(self, X: np.ndarray) -> torch.tensor:
         X_numpy = rearrange(X, "b c t -> b t c").astype(np.float32)
         X_tensor = torch.tensor(X_numpy)
         td_X_og = swt_map(X_numpy, self.wt_levels, "haar")
@@ -95,7 +95,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         )
         return td_X_og
 
-    def _compute_sig_feats(self, td_X_og):
+    def _compute_sig_feats(self, td_X_og: np.ndarray) -> torch.tensor:
         multi_series = [td_X_og] + [
             self.get_window(td_X_og.shape[1], alpha)[None, :, None].float() * td_X_og
             for alpha in self.window_alphas
@@ -142,7 +142,7 @@ class MulSigTransformer(BaseCollectionTransformer):
 
         return feats
 
-    def _transform(self, X, y=None):
+    def _transform(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
         td_X_og = self._preprocess_data(X)
         if td_X_og.shape[-1] > self.dim_limit:
             if not self.use_kPCA:
@@ -161,7 +161,7 @@ class MulSigTransformer(BaseCollectionTransformer):
 
         return self._compute_sig_feats(td_X_og)
 
-    def _fit_transform(self, X, y=None):
+    def _fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
         random_state = (
             np.int32(self.random_state) if isinstance(self.random_state, int) else None
         )

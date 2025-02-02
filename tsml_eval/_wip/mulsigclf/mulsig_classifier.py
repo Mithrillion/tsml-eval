@@ -1,13 +1,23 @@
 __maintainer__ = ["mithrillion"]
 __all__ = ["MulSigClassifier"]
 
+import warnings
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.pipeline import Pipeline
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    StackingClassifier,
+    VotingClassifier,
+)
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import RidgeClassifierCV
 from sklearn.preprocessing import StandardScaler
 from aeon.base._base import _clone_estimator
 from aeon.classification.base import BaseClassifier
+from cuml import LogisticRegression
+from aeon.transformations.collection.feature_based import Catch22
+from aeon.transformations.collection.convolution_based import MiniRocket
+from tsml_eval._wip.mulsigclf.utils import *
 from tsml_eval._wip.mulsigclf.mulsig_features import MulSigTransformer
 
 
@@ -35,7 +45,7 @@ class MulSigClassifier(BaseClassifier):
         add_rocket: bool = False,
         classifier: str = "logreg",
         ensemble_params: dict = {},
-        **clf_kwargs,
+        regression_params: dict = {},
     ):
         super(MulSigClassifier, self).__init__()
         self.depth = depth
@@ -52,7 +62,10 @@ class MulSigClassifier(BaseClassifier):
         self.add_c22 = add_c22
         self.add_rocket = add_rocket
         self.classifier = classifier
-        self.ensemble_params = ensemble_params
+        self.ensemble_params = ensemble_params if ensemble_params is not None else {}
+        self.regression_params = (
+            regression_params if regression_params is not None else {}
+        )
         self._transformer = MulSigTransformer(
             depth=depth,
             use_logsig=use_logsig,
@@ -65,4 +78,179 @@ class MulSigClassifier(BaseClassifier):
             use_kPCA=use_kPCA,
             window_alphas=window_alphas,
             do_rescale=do_rescale,
+        )
+        self._c22 = None
+        self._rocket = None
+        self._clf = None
+
+    def _fit(self, X: np.ndarray, y: np.ndarray):
+        random_state = (
+            np.int32(self.random_state) if isinstance(self.random_state, int) else None
+        )
+
+        # transform features
+        X_feats = self._transformer.fit_transform(X).numpy()
+
+        X_aeon = np.transpose(pad_if_short(np.transpose(X, (0, 2, 1))), (0, 2, 1))
+
+        if self.add_c22:
+            self._c22 = Catch22(n_jobs=-1, replace_nans=True)
+            c22_feats = self._c22.fit_transform(X_aeon).astype(np.float32)
+            X_feats = np.concatenate([X_feats, c22_feats], axis=-1)
+
+        if self.add_rocket:
+            self._rocket = MiniRocket(
+                n_kernels=10000, random_state=random_state, n_jobs=-1
+            )
+            rocket_feats = self._rocket.fit(X_aeon)
+            X_feats = np.concatenate([X_feats, rocket_feats], axis=-1)
+
+        if "rf" in self.regression_params:
+            rf_kwargs = self.regression_params["rf"]
+        if "logreg" in self.regression_params:
+            logreg_kwargs = self.regression_params["logreg"]
+        if "ridge" in self.regression_params:
+            ridge_kwargs = self.regression_params["ridge"]
+
+        match self.classifier:
+            case "rf":
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message="For reproducible results in Random Forest Classifier",
+                    )
+                    self._clf = RandomForestClassifier(
+                        random_state=random_state, **rf_kwargs
+                    )
+                    self._clf.fit(X_feats, y)
+            case "logreg":
+                clf = LogisticRegression(**logreg_kwargs)
+                scaler = StandardScaler()
+                self._clf = make_pipeline(scaler, clf)
+                self._clf.fit(X_feats, y)
+            case "calibratedridgecv":
+                min_samples_per_class = np.bincount(y).min()
+                if min_samples_per_class > 2:
+                    clf = CalibratedClassifierCV(
+                        estimator=RidgeClassifierCV(
+                            **ridge_kwargs, cv=min(5, min_samples_per_class - 1)
+                        ),
+                        method="sigmoid",
+                        cv=min(5, min_samples_per_class),
+                        n_jobs=-1,
+                        ensemble=False,
+                    )
+                else:
+                    # fall back to RF if not enough samples for RidgeCV (having single instance in a class)
+                    clf = RandomForestClassifier(
+                        random_state=random_state, n_estimators=100
+                    )
+                scaler = StandardScaler()
+                self._c22 = make_pipeline(scaler, clf)
+                self._c22.fit(X_feats, y)
+            case "ensemble":
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message="For reproducible results in Random Forest Classifier",
+                    )
+                    scaler = StandardScaler()
+                    clf_1 = RandomForestClassifier(
+                        random_state=random_state,
+                        n_jobs=-1,
+                        **self.ensemble_params["rf"],
+                    )
+                    clf_2 = LogisticRegression(**self.ensemble_params["logreg"])
+                    clf_3 = LogisticRegression(**self.ensemble_params["logreg2"])
+                    if self.ensemble_params.get("use_rf2", True):
+                        clf_4 = RandomForestClassifier(
+                            random_state=random_state,
+                            n_jobs=-1,
+                            **self.ensemble_params["rf2"],
+                        )
+                    clf_meta = LogisticRegression(C=1, max_iter=100)
+                    min_samples_per_class = np.bincount(y).min()
+                    if min_samples_per_class > 1:
+                        ens_clfs = [("rf", clf_1), ("lr", clf_2), ("lr2", clf_3)]
+                        if self.ensemble_params.get("use_rf2", True):
+                            ens_clfs.append(("rf2", clf_4))
+                        clf = StackingClassifier(
+                            ens_clfs,
+                            final_estimator=clf_meta,
+                            cv=min(5, min_samples_per_class),
+                        )
+                    else:
+                        clf = VotingClassifier(
+                            [("rf", clf_1), ("lr", clf_2)], voting="soft"
+                        )
+                    self._clf = make_pipeline(scaler, clf)
+                    self._clf.fit(X_feats, y)
+            case _:
+                raise NotImplementedError(
+                    f"Classifier {self.classifier} not implemented"
+                )
+
+    def _predict(self, X):
+        return self._clf.predict(X)
+    
+    def _predict_proba(self, X):
+        return self._clf.predict_proba(X)
+    
+    @classmethod
+    def _get_test_params(cls, parameter_set="default"):
+        if parameter_set == "results_comparison":
+            return dict(
+            depth=3,
+            use_logsig=True,
+            sig_mode="brackets",
+            do_aug=True,
+            do_time_aug=True,
+            return_raw=False,
+            add_c22=False,
+            add_rocket=True,
+            do_rescale=False,
+            aug_levels=3,
+            dim_limit=10,
+            use_kpca=False,
+            classifier="ensemble",
+            ensemble_params=dict(
+                use_rf2=True,
+                rf=dict(n_estimators=5),
+                logreg=dict(penalty="elasticnet", C=0.1, max_iter=10, l1_ratio=0.15),
+                logreg2=dict(penalty="l2", C=100, max_iter=10),
+                rf2=dict(
+                    n_estimators=5,
+                    max_features="log2",
+                    criterion="entropy",
+                    max_depth=5,
+                ),
+            ),
+        )
+        else:
+            return dict(
+            depth=2,
+            use_logsig=True,
+            sig_mode="brackets",
+            do_aug=True,
+            do_time_aug=True,
+            return_raw=False,
+            add_c22=False,
+            add_rocket=True,
+            do_rescale=False,
+            aug_levels=2,
+            dim_limit=10,
+            use_kpca=False,
+            classifier="ensemble",
+            ensemble_params=dict(
+                use_rf2=True,
+                rf=dict(n_estimators=2),
+                logreg=dict(penalty="elasticnet", C=0.1, max_iter=10, l1_ratio=0.15),
+                logreg2=dict(penalty="l2", C=100, max_iter=10),
+                rf2=dict(
+                    n_estimators=2,
+                    max_features="log2",
+                    criterion="entropy",
+                    max_depth=5,
+                ),
+            ),
         )
