@@ -33,6 +33,8 @@ dependencies:
   - cudf
   - cuml
   - cuvs
+  - cupy>=13.3
+  - openpyxl
   - pip:
     - iisignature
     - autorank

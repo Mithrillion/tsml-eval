@@ -40,6 +40,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         use_kPCA: bool = False,
         window_alphas: tuple = (1 / 3, 2 / 3, 1),
         do_rescale: bool = False,
+        n_jobs: int = -1
     ):
         super(MulSigTransformer, self).__init__()
         self.depth = depth
@@ -53,7 +54,9 @@ class MulSigTransformer(BaseCollectionTransformer):
         self.use_kPCA = use_kPCA
         self.window_alphas = window_alphas
         self.do_rescale = do_rescale
+        self.n_jobs = n_jobs
         self._pca = None
+        self._pca_rs = None
 
     def _fit(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
         # Fit method implementation
@@ -74,13 +77,13 @@ class MulSigTransformer(BaseCollectionTransformer):
                     kernel="rbf",
                     random_state=random_state,
                     fit_inverse_transform=False,
-                    n_jobs=-1,
+                    n_jobs=self.n_jobs,
                 )
                 td_X_og = torch.tensor(pca.fit_transform(td_X_og.flatten(0, 1))).view(
                     *td_X_og.shape[:2], -1
                 )
-        self._pca = pca
-        self._pca_rs = random_state
+            self._pca = pca
+            self._pca_rs = random_state
 
         return self
 
@@ -179,11 +182,11 @@ class MulSigTransformer(BaseCollectionTransformer):
                     kernel="rbf",
                     random_state=random_state,
                     fit_inverse_transform=False,
-                    n_jobs=-1,
+                    n_jobs=self.n_jobs,
                 )
                 td_X_og = torch.tensor(pca.fit_transform(td_X_og.flatten(0, 1))).view(
                     *td_X_og.shape[:2], -1
                 )
-        self._pca = pca
-        self._pca_rs = random_state
+            self._pca = pca
+            self._pca_rs = random_state
         return self._compute_sig_feats(td_X_og)
