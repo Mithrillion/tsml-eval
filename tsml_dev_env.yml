@@ -1,0 +1,34 @@
+name: tsml_dev
+channels:
+  - conda-forge
+  - nvidia
+dependencies:
+  - python=3.11
+  - pytorch>=2.5.1
+  - torchvision
+  - torchaudio
+  - einops
+  - ipykernel
+  - jupyter
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - pandas
+  - polars
+  - pyarrow
+  - black
+  - xarray
+  - tqdm
+  - pip
+  - optuna
+  - cuda-nvcc=12.1
+  - cuda-version=12.1
+  - cxx-compiler
+  - nvidia::cuda-toolkit=12.1
+  - pytest
+  - tsml-eval
+  - pip:
+    - iisignature
+    - autorank
+    - git+https://github.com/patrick-kidger/signatory.git
