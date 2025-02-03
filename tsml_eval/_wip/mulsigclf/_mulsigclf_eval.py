@@ -7,9 +7,8 @@ from aeon.classification import DummyClassifier
 from aeon.datasets import load_classification
 from aeon.visualisation import plot_critical_difference
 from sklearn.metrics import accuracy_score
-from tsml.datasets import load_minimal_chinatown
 
-from tsml_eval.evaluation.storage import load_classifier_results
+from tsml_eval.evaluation.storage import load_classifier_results, ClassifierResults
 from tsml_eval.experiments import (
     experiments,
     get_classifier_by_name,
@@ -109,9 +108,14 @@ datasets = [
     "StandWalkJump",
     "UWaveGestureLibrary",
 ]
+extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
 for dataset in datasets:
-    X_train, y_train = load_classification(dataset, split="train")
-    X_test, y_test = load_classification(dataset, split="test")
+    X_train, y_train = load_classification(
+        dataset, split="train", extract_path=extract_path
+    )
+    X_test, y_test = load_classification(
+        dataset, split="test", extract_path=extract_path
+    )
 
     run_classification_experiment(
         X_train,
@@ -121,11 +125,11 @@ for dataset in datasets:
         msc,
         "./generated_results/",
         dataset_name=dataset,
-        resample_id=0,
+        resample_id=1,
     )
 # %%
 cr = load_classifier_results(
-    "./generated_results/MulSigClassifier/Predictions/ArrowHead/testResample0.csv"
+    "./generated_results/MulSigClassifier/Predictions/ERing/testResample0.csv"
 )
 print(cr.predictions)
 print(cr.accuracy)

@@ -288,19 +288,33 @@ class ClassifierResults(EstimatorResults):
                 multi_class="ovr",
             )
         if self.sensitivity is None or overwrite:
+            # self.sensitivity = recall_score(
+            #     self.class_labels,
+            #     self.predictions,
+            #     average="binary",
+            #     pos_label=self._minority_class,
+            #     zero_division=0.0,
+            # )
             self.sensitivity = recall_score(
-                self.class_labels,
-                self.predictions,
-                average="binary" if self.n_classes == 2 else "weighted",
-                pos_label=self._minority_class if self.n_classes == 2 else 1,
+                self.class_labels == self._minority_class,
+                self.predictions == self._minority_class,
+                average="binary",
+                pos_label=1,
                 zero_division=0.0,
             )
         if self.specificity is None or overwrite:
+            # self.specificity = recall_score(
+            #     self.class_labels,
+            #     self.predictions,
+            #     average="binary",
+            #     pos_label=self._majority_class,
+            #     zero_division=0.0,
+            # )
             self.specificity = recall_score(
-                self.class_labels,
-                self.predictions,
-                average="binary" if self.n_classes == 2 else "weighted",
-                pos_label=self._majority_class if self.n_classes == 2 else 1,
+                self.class_labels == self._majority_class,
+                self.predictions == self._majority_class,
+                average="binary",
+                pos_label=1,
                 zero_division=0.0,
             )
         if self.f1_score is None or overwrite:

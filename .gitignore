@@ -123,6 +123,7 @@ dmypy.json
 
 #IDE
 .idea/
+.vscode/
 
 # Test output
 test_output/
