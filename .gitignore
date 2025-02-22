@@ -129,6 +129,7 @@ dmypy.json
 test_output/
 examples/generated_results/
 tsml_eval/_wip/mulsigclf/generated_results/
+tsml_eval/_wip/mulsigclf/generated_evals/
 
 # Test datasts
 test_datasets/
