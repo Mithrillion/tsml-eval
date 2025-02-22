@@ -11,7 +11,7 @@ from sklearn.ensemble import (
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import RidgeClassifierCV
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler, Normalizer
 from aeon.classification.base import BaseClassifier
 from cuml import LogisticRegression
 from aeon.transformations.collection.feature_based import Catch22
@@ -34,9 +34,10 @@ class MulSigClassifier(BaseClassifier):
         sig_mode: str = "words",
         do_aug: bool = True,
         do_time_aug: bool = True,
+        do_fourier_aug: bool = True,
         random_state: int = None,
         wt_levels: int = 3,
-        dim_limit: int = 10,
+        dim_limit: int = 8,
         use_kPCA: bool = False,
         window_alphas: tuple = (1 / 3, 2 / 3, 1),
         do_rescale: bool = False,
@@ -52,6 +53,7 @@ class MulSigClassifier(BaseClassifier):
         self.use_logsig = use_logsig
         self.sig_mode = sig_mode
         self.do_aug = do_aug
+        self.do_fourier_aug = do_fourier_aug
         self.do_time_aug = do_time_aug
         self.random_state = random_state
         self.wt_levels = wt_levels
@@ -73,6 +75,7 @@ class MulSigClassifier(BaseClassifier):
             sig_mode=sig_mode,
             do_aug=do_aug,
             do_time_aug=do_time_aug,
+            do_fourier_aug=do_fourier_aug,
             random_state=random_state,
             wt_levels=wt_levels,
             dim_limit=dim_limit,
@@ -144,7 +147,7 @@ class MulSigClassifier(BaseClassifier):
                     self._clf.fit(X_feats, y)
             case "logreg":
                 clf = LogisticRegression(**logreg_kwargs, verbose=2)
-                scaler = StandardScaler()
+                scaler = Normalizer("max")
                 self._clf = make_pipeline(scaler, clf)
                 self._clf.fit(X_feats, y)
             case "calibratedridgecv":
@@ -166,7 +169,7 @@ class MulSigClassifier(BaseClassifier):
                     clf = RandomForestClassifier(
                         random_state=random_state, n_estimators=100
                     )
-                scaler = StandardScaler()
+                scaler = Normalizer("max")
                 self._c22 = make_pipeline(scaler, clf)
                 self._c22.fit(X_feats, y)
             case "ensemble":
@@ -175,7 +178,7 @@ class MulSigClassifier(BaseClassifier):
                         "ignore",
                         message="For reproducible results in Random Forest Classifier",
                     )
-                    scaler = StandardScaler()
+                    scaler = Normalizer("max")
                     clf_1 = RandomForestClassifier(
                         random_state=random_state,
                         n_jobs=self.n_jobs,
@@ -245,12 +248,13 @@ class MulSigClassifier(BaseClassifier):
                 sig_mode="brackets",
                 do_aug=True,
                 do_time_aug=True,
+                do_fourier_aug=True,
                 return_raw=False,
                 add_c22=False,
                 add_rocket=True,
                 do_rescale=False,
                 aug_levels=3,
-                dim_limit=10,
+                dim_limit=8,
                 use_kpca=False,
                 classifier="ensemble",
                 ensemble_params=dict(
@@ -275,12 +279,13 @@ class MulSigClassifier(BaseClassifier):
                 sig_mode="brackets",
                 do_aug=True,
                 do_time_aug=True,
+                do_fourier_aug=True,
                 return_raw=False,
                 add_c22=False,
                 add_rocket=True,
                 do_rescale=False,
                 aug_levels=2,
-                dim_limit=10,
+                dim_limit=8,
                 use_kpca=False,
                 classifier="ensemble",
                 ensemble_params=dict(

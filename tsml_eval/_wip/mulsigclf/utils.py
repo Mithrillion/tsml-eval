@@ -76,12 +76,24 @@ def to_nd_leadlag(X):
     return X_leadlag
 
 
-def time_aug(X, t_range=(0, 1)):
+def time_aug(X, t_range=(0, 1), fourier_aug=False):
     # assume (batch, time, channel)
     t_len = X.shape[1]
     time_axis = torch.linspace(*t_range, t_len)
     time_component = torch.repeat_interleave(time_axis[None, :, None], len(X), dim=0)
-    return torch.cat([time_component, X], dim=-1)
+    if fourier_aug:
+        return torch.cat(
+            [
+                time_component,
+                torch.sin(2 * torch.pi * time_component / (t_range[1] - t_range[0])),
+                torch.cos(2 * torch.pi * time_component / (t_range[1] - t_range[0]))
+                - 1,
+                X,
+            ],
+            dim=-1,
+        )
+    else:
+        return torch.cat([time_component, X], dim=-1)
 
 
 def to_td(X, tau=1, d=2, pad=None, time_last=True):

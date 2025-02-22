@@ -34,6 +34,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         sig_mode: str = "words",
         do_aug: bool = True,
         do_time_aug: bool = True,
+        do_fourier_aug: bool = True,
         random_state: int = None,
         wt_levels: int = 3,
         dim_limit: int = 10,
@@ -48,6 +49,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         self.sig_mode = sig_mode
         self.do_aug = do_aug
         self.do_time_aug = do_time_aug
+        self.do_fourier_aug = do_fourier_aug
         self.random_state = random_state
         self.wt_levels = wt_levels
         self.dim_limit = dim_limit
@@ -90,7 +92,7 @@ class MulSigTransformer(BaseCollectionTransformer):
     def _preprocess_data(self, X: np.ndarray) -> torch.tensor:
         X_numpy = rearrange(X, "b c t -> b t c").astype(np.float32)
         X_tensor = torch.tensor(X_numpy)
-        td_X_og = swt_map(X_numpy, self.wt_levels, "haar")
+        td_X_og = swt_map(X_numpy, self.wt_levels, "db4")
         td_X_og = torch.cat(
             [X_tensor, diff_series(X_tensor)]
             + [torch.tensor(x).float() for x in td_X_og],
@@ -125,7 +127,7 @@ class MulSigTransformer(BaseCollectionTransformer):
         # print("computing sigs...")
         for td_X_part in multi_series:
             if self.do_time_aug:
-                td_X_part = time_aug(td_X_part, (0, 1))
+                td_X_part = time_aug(td_X_part, (0, 1), self.do_fourier_aug)
 
             if og_iter:
                 sigs_base = base_sig_map(

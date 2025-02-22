@@ -130,6 +130,7 @@ test_output/
 examples/generated_results/
 tsml_eval/_wip/mulsigclf/generated_results/
 tsml_eval/_wip/mulsigclf/generated_evals/
+tsml_eval/_wip/mulsigclf/old_results/
 
 # Test datasts
 test_datasets/

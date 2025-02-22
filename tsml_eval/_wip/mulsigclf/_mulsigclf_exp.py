@@ -54,9 +54,10 @@ config = dict(
     do_aug=True,
     # window_alphas=[0],
     do_time_aug=True,
+    do_fourier_aug=True,
     random_state=7777,
     add_c22=False,
-    add_rocket=True,
+    add_rocket=False,
     do_rescale=False,
     wt_levels=4,
     dim_limit=10,
@@ -110,7 +111,7 @@ datasets = [
     "UWaveGestureLibrary",
 ]
 extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
-for resample in range(13, 30):
+for resample in range(20):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset, split="train", extract_path=extract_path
