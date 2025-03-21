@@ -134,6 +134,7 @@ tsml_eval/_wip/mulsigclf/old_results/
 
 # Test datasts
 test_datasets/
+test_uni_datasets/
 
 # HTcondor files
 */condor_output/*

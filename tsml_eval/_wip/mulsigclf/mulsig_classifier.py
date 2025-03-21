@@ -20,6 +20,34 @@ from tsml_eval._wip.mulsigclf.utils import *
 from tsml_eval._wip.mulsigclf.mulsig_features import MulSigTransformer
 
 
+class RidgeClassifierCVExt(RidgeClassifierCV):
+    def __init__(
+        self,
+        alphas=(0.1, 1.0, 10.0),
+        *,
+        fit_intercept=True,
+        scoring=None,
+        cv=None,
+        class_weight=None,
+        store_cv_values=False,
+    ):
+        super().__init__(
+            alphas=alphas,
+            fit_intercept=fit_intercept,
+            scoring=scoring,
+            cv=cv,
+            store_cv_values=store_cv_values,
+            class_weight=class_weight,
+        )
+
+    def predict_proba(self, X) -> np.ndarray:
+        dists = np.zeros((X.shape[0], len(self.classes_)))
+        preds = self.predict(X)
+        for i in range(0, X.shape[0]):
+            dists[i, np.where(self.classes_ == preds[i])] = 1
+        return dists
+
+
 class MulSigClassifier(BaseClassifier):
     _tags = {
         "capability:multithreading": True,
@@ -36,11 +64,13 @@ class MulSigClassifier(BaseClassifier):
         do_time_aug: bool = True,
         do_fourier_aug: bool = True,
         random_state: int = None,
+        scaler_quantile: float = 0.05,
         wt_levels: int = 3,
         dim_limit: int = 8,
         use_kPCA: bool = False,
         window_alphas: tuple = (1 / 3, 2 / 3, 1),
         do_rescale: bool = False,
+        scale_features: bool = True,
         add_c22: bool = False,
         add_rocket: bool = False,
         classifier: str = "logreg",
@@ -56,11 +86,13 @@ class MulSigClassifier(BaseClassifier):
         self.do_fourier_aug = do_fourier_aug
         self.do_time_aug = do_time_aug
         self.random_state = random_state
+        self.scaler_quantile = scaler_quantile
         self.wt_levels = wt_levels
         self.dim_limit = dim_limit
         self.use_kPCA = use_kPCA
         self.window_alphas = window_alphas
         self.do_rescale = do_rescale
+        self.scale_features = scale_features
         self.add_c22 = add_c22
         self.add_rocket = add_rocket
         self.classifier = classifier
@@ -82,15 +114,21 @@ class MulSigClassifier(BaseClassifier):
             use_kPCA=use_kPCA,
             window_alphas=window_alphas,
             do_rescale=do_rescale,
+            scale_features=scale_features,
             n_jobs=n_jobs,
         )
         self._c22 = None
         self._rocket = None
         self._clf = None
+        self._scaler_lower = None
+        self._scaler_upper = None
 
     def _transform_data(self, X: np.ndarray, random_state: np.int32):
         # transform features
-        X_feats = self._transformer.fit_transform(X).numpy()
+        self._scaler_lower = np.nanquantile(X, self.scaler_quantile)
+        self._scaler_upper = np.nanquantile(X, 1 - self.scaler_quantile)
+        X = (X - self._scaler_lower) / (self._scaler_upper - self._scaler_lower)
+        X_feats = self._transformer.fit_transform(X)
 
         X_aeon = np.transpose(pad_if_short(np.transpose(X, (0, 2, 1))), (0, 2, 1))
 
@@ -108,14 +146,15 @@ class MulSigClassifier(BaseClassifier):
         return X_feats
 
     def _apply_transform(self, X: np.ndarray):
-        X_feats = self._transformer.transform(X).numpy()
+        X = (X - self._scaler_lower) / (self._scaler_upper - self._scaler_lower)
+        X_feats = self._transformer.transform(X)
         X_aeon = np.transpose(pad_if_short(np.transpose(X, (0, 2, 1))), (0, 2, 1))
         if self.add_c22:
-            c22_feats = self._c22.fit_transform(X_aeon).astype(np.float32)
+            c22_feats = self._c22.transform(X_aeon).astype(np.float32)
             X_feats = np.concatenate([X_feats, c22_feats], axis=-1)
 
         if self.add_rocket:
-            rocket_feats = self._rocket.fit_transform(X_aeon)
+            rocket_feats = self._rocket.transform(X_aeon)
             X_feats = np.concatenate([X_feats, rocket_feats], axis=-1)
         return X_feats
 
@@ -147,38 +186,29 @@ class MulSigClassifier(BaseClassifier):
                     self._clf.fit(X_feats, y)
             case "logreg":
                 clf = LogisticRegression(**logreg_kwargs, verbose=2)
-                scaler = Normalizer("max")
-                self._clf = make_pipeline(scaler, clf)
+                self._clf = clf
                 self._clf.fit(X_feats, y)
-            case "calibratedridgecv":
+            case "ridgecv":
                 min_samples_per_class = np.min(
                     [np.sum(y == label) for label in np.unique(y)]
                 )
                 if min_samples_per_class > 2:
-                    clf = CalibratedClassifierCV(
-                        estimator=RidgeClassifierCV(
-                            **ridge_kwargs, cv=min(5, min_samples_per_class - 1)
-                        ),
-                        method="sigmoid",
-                        cv=min(5, min_samples_per_class),
-                        n_jobs=self.n_jobs,
-                        ensemble=False,
+                    clf = RidgeClassifierCVExt(
+                        **ridge_kwargs, cv=min(5, min_samples_per_class - 1)
                     )
                 else:
                     # fall back to RF if not enough samples for RidgeCV (having single instance in a class)
                     clf = RandomForestClassifier(
                         random_state=random_state, n_estimators=100
                     )
-                scaler = Normalizer("max")
-                self._c22 = make_pipeline(scaler, clf)
-                self._c22.fit(X_feats, y)
+                self._clf = clf
+                self._clf.fit(X_feats, y)
             case "ensemble":
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         "ignore",
                         message="For reproducible results in Random Forest Classifier",
                     )
-                    scaler = Normalizer("max")
                     clf_1 = RandomForestClassifier(
                         random_state=random_state,
                         n_jobs=self.n_jobs,
@@ -196,6 +226,8 @@ class MulSigClassifier(BaseClassifier):
                             n_jobs=self.n_jobs,
                             **self.ensemble_params["rf2"],
                         )
+                    if self.ensemble_params.get("use_ridge", True):
+                        clf_5 = RidgeClassifierCV(**self.ensemble_params["ridge"])
                     clf_meta = LogisticRegression(C=1, max_iter=100, verbose=2)
                     min_samples_per_class = np.min(
                         [np.sum(y == label) for label in np.unique(y)]
@@ -204,6 +236,8 @@ class MulSigClassifier(BaseClassifier):
                         ens_clfs = [("rf", clf_1), ("lr", clf_2), ("lr2", clf_3)]
                         if self.ensemble_params.get("use_rf2", True):
                             ens_clfs.append(("rf2", clf_4))
+                        if self.ensemble_params.get("use_ridge", True):
+                            ens_clfs.append(("ridge", clf_5))
                         clf = StackingClassifier(
                             ens_clfs,
                             final_estimator=clf_meta,
@@ -213,7 +247,7 @@ class MulSigClassifier(BaseClassifier):
                         clf = VotingClassifier(
                             [("rf", clf_1), ("lr", clf_2)], voting="soft"
                         )
-                    self._clf = make_pipeline(scaler, clf)
+                    self._clf = clf
                     self._clf.fit(X_feats, y)
             case _:
                 raise NotImplementedError(

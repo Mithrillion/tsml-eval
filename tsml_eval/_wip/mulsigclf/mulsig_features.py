@@ -12,6 +12,7 @@ import numpy as np
 from scipy.signal import windows
 from aeon.transformations.collection import BaseCollectionTransformer
 from einops import rearrange
+from sklearn.preprocessing import MinMaxScaler
 
 
 class MulSigTransformer(BaseCollectionTransformer):
@@ -41,7 +42,8 @@ class MulSigTransformer(BaseCollectionTransformer):
         use_kPCA: bool = False,
         window_alphas: tuple = (1 / 3, 2 / 3, 1),
         do_rescale: bool = False,
-        n_jobs: int = -1
+        scale_features: bool = True,
+        n_jobs: int = -1,
     ):
         super(MulSigTransformer, self).__init__()
         self.depth = depth
@@ -56,11 +58,13 @@ class MulSigTransformer(BaseCollectionTransformer):
         self.use_kPCA = use_kPCA
         self.window_alphas = window_alphas
         self.do_rescale = do_rescale
+        self.scale_features = scale_features
         self.n_jobs = n_jobs
         self._pca = None
         self._pca_rs = None
+        self._scaler = None
 
-    def _fit(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
+    def _fit(self, X: np.ndarray, y: np.ndarray = None) -> "MulSigTransformer":
         # Fit method implementation
         random_state = (
             np.int32(self.random_state) if isinstance(self.random_state, int) else None
@@ -147,7 +151,7 @@ class MulSigTransformer(BaseCollectionTransformer):
 
         return feats
 
-    def _transform(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
+    def _transform(self, X: np.ndarray, y: np.ndarray = None) -> np.ndarray:
         td_X_og = self._preprocess_data(X)
         if td_X_og.shape[-1] > self.dim_limit:
             if not self.use_kPCA:
@@ -161,12 +165,18 @@ class MulSigTransformer(BaseCollectionTransformer):
                 )
             else:
                 td_X_og = torch.tensor(
-                    self._pca.fit_transform(td_X_og.flatten(0, 1))
+                    self._pca.transform(td_X_og.flatten(0, 1))
                 ).view(*td_X_og.shape[:2], -1)
 
-        return self._compute_sig_feats(td_X_og)
+        res = self._compute_sig_feats(td_X_og).numpy()
+        if self.scale_features:
+            if self._scaler is None:
+                self._scaler = MinMaxScaler()
+                self._scaler.fit(res)
+            return self._scaler.transform(res)
+        return res
 
-    def _fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> torch.tensor:
+    def _fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> np.ndarray:
         random_state = (
             np.int32(self.random_state) if isinstance(self.random_state, int) else None
         )
@@ -191,4 +201,8 @@ class MulSigTransformer(BaseCollectionTransformer):
                 )
             self._pca = pca
             self._pca_rs = random_state
-        return self._compute_sig_feats(td_X_og)
+        res = self._compute_sig_feats(td_X_og).numpy()
+        if self.scale_features:
+            self._scaler = MinMaxScaler()
+            return self._scaler.fit_transform(res)
+        return res

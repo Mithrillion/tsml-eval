@@ -48,7 +48,7 @@ evaluate_classifiers_by_problem(
     classifiers,
     datasets,
     "./generated_evals/",
-    resamples=20,
+    resamples=30,
     eval_name="ExampleEval",
 )
 
