@@ -159,7 +159,7 @@ if MODE == "univar":
         "WormsTwoClass",
         "Yoga",
     ]
-    extract_path = "/mnt/Nova/source_repos/tsml-eval/test_uni_datasets/"
+    extract_path = "/workspace/test_uni_data/"
 elif MODE == "multivar":
     # NOTE: multivar
     config = dict(
@@ -243,7 +243,7 @@ elif MODE == "multivar":
         # "Tiselac",
         "UWaveGestureLibrary",
     ]
-    extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
+    extract_path = "/workspace/test_data/"
 msc = MulSigClassifier(**config)
 # %%
 for resample in range(25, 30):
