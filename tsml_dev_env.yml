@@ -5,7 +5,7 @@ channels:
   - rapidsai
 dependencies:
   - python=3.11
-  - pytorch>=2.5.1
+  - pytorch>=2.5.1=*cuda*
   - torchvision
   - torchaudio
   - einops
@@ -23,10 +23,10 @@ dependencies:
   - tqdm
   - pip
   - optuna
-  - cuda-nvcc=12.1
-  - cuda-version=12.1
+  - cuda-nvcc>=12.1
+  - cuda-version>=12.1
   - cxx-compiler
-  - nvidia::cuda-toolkit=12.1
+  - nvidia::cuda-toolkit>=12.1
   - pytest
   - tsml-eval
   - pywavelets
