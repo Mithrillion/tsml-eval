@@ -246,7 +246,7 @@ elif MODE == "multivar":
     extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
 msc = MulSigClassifier(**config)
 # %%
-for resample in range(21, 30):
+for resample in range(25, 30):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset,
