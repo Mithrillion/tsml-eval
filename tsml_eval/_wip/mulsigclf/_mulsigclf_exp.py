@@ -246,7 +246,7 @@ elif MODE == "multivar":
     extract_path = "/workspace/test_data/"
 msc = MulSigClassifier(**config)
 # %%
-for resample in range(25, 30):
+for resample in range(30):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset,

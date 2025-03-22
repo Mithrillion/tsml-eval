@@ -5,6 +5,7 @@ from aeon.classification.convolution_based import (
     MiniRocketClassifier,
     MultiRocketHydraClassifier,
     HydraClassifier,
+    MultiRocketClassifier,
 )
 from aeon.classification.hybrid import RISTClassifier
 from aeon.transformations.collection import Padder
@@ -140,7 +141,7 @@ if MODE == "univar":
         "WormsTwoClass",
         "Yoga",
     ]
-    extract_path = "/mnt/Nova/source_repos/tsml-eval/test_uni_datasets/"
+    extract_path = "/workspace/test_uni_data/"
 elif MODE == "multivar":
     datasets = [
         "ArticularyWordRecognition",
@@ -184,7 +185,7 @@ elif MODE == "multivar":
         # "Tiselac",
         "UWaveGestureLibrary",
     ]
-    extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
+    extract_path = "/workspace/test_data/"
 # %%
 mrc = MiniRocketClassifier(n_jobs=16, random_state=7777)
 mrhc = MultiRocketHydraClassifier(n_jobs=16, random_state=7777)
@@ -193,7 +194,7 @@ ristc = RISTClassifier(n_jobs=16, random_state=7777)
 drcif = DrCIFClassifier(n_jobs=16, random_state=7777)
 c22 = Catch22Classifier(n_jobs=16, random_state=7777)
 # %%
-for resample in range(16, 30):
+for resample in range(30):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset,
