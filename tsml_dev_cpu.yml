@@ -1,0 +1,29 @@
+name: tsml_dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pytorch
+  - torchvision
+  - torchaudio
+  - einops
+  - ipykernel
+  - jupyter
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - pandas
+  - polars
+  - pyarrow
+  - black
+  - xarray
+  - tqdm
+  - pip
+  - optuna
+  - pytest
+  - tsml-eval
+  - pywavelets
+  - openpyxl
+  - pip:
+    - autorank
