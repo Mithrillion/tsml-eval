@@ -110,7 +110,7 @@ datasets = [
     "UWaveGestureLibrary",
 ]
 extract_path = "/mnt/Nova/source_repos/tsml-eval/test_datasets/"
-for resample in range(13, 30):
+for resample in range(30):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset, split="train", extract_path=extract_path
@@ -129,13 +129,3 @@ for resample in range(13, 30):
             dataset_name=dataset,
             resample_id=resample,
         )
-# %%
-cr = load_classifier_results(
-    "./generated_results/MulSigClassifier/Predictions/ERing/testResample0.csv"
-)
-print(cr.predictions)
-print(cr.accuracy)
-print(cr.balanced_accuracy)
-print(cr.auroc_score)
-print(cr.log_loss)
-# %%

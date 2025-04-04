@@ -228,7 +228,7 @@ for resample in range(30):
                 y_train,
                 X_test,
                 y_test,
-                hrc,
+                c22,
                 "./generated_results/",
                 dataset_name=dataset,
                 resample_id=resample,
