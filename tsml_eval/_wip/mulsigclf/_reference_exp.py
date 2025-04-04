@@ -20,7 +20,15 @@ from tsml_eval.evaluation.storage import load_classifier_results
 from tsml_eval.experiments import (
     run_classification_experiment,
 )
-from tsml_eval._wip.mulsigclf.utils import *
+
+
+# %%
+def pad_if_short(x, min_len=9):
+    if x.shape[1] < min_len:
+        return np.pad(x, ((0, 0), (0, min_len - x.shape[1]), (0, 0)), mode="constant")
+    else:
+        return x
+
 
 # %%
 MODE = "multivar"
