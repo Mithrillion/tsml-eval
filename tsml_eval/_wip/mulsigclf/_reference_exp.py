@@ -22,7 +22,7 @@ from tsml_eval.experiments import (
 from tsml_eval._wip.mulsigclf.utils import *
 
 # %%
-MODE = "multivar"
+MODE = "univar"
 # %%
 # NOTE: univar:
 if MODE == "univar":
@@ -193,7 +193,7 @@ ristc = RISTClassifier(n_jobs=16, random_state=7777)
 drcif = DrCIFClassifier(n_jobs=16, random_state=7777)
 c22 = Catch22Classifier(n_jobs=16, random_state=7777)
 # %%
-for resample in range(16, 30):
+for resample in range(30):
     for dataset in tqdm(datasets):
         X_train, y_train = load_classification(
             dataset,
@@ -219,8 +219,8 @@ for resample in range(16, 30):
                 y_train,
                 X_test,
                 y_test,
-                hrc,
-                "./generated_results/",
+                c22,
+                "./generated_results_univar/",
                 dataset_name=dataset,
                 resample_id=resample,
             )
